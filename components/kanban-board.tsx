@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
@@ -21,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, MoreVertical, Trash2, Edit2, GripVertical, Loader2 } from "lucide-react"
+import { MoreVertical, Trash2, Edit2, GripVertical, Loader2 } from "lucide-react"
 
 interface Task {
   id: string
@@ -47,9 +46,6 @@ interface KanbanBoardProps {
 export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [newColumnName, setNewColumnName] = useState("")
-  const [newColumnColor, setNewColumnColor] = useState("#22c55e")
-  const [isAddingColumn, setIsAddingColumn] = useState(false)
   const [editingColumn, setEditingColumn] = useState<KanbanColumn | null>(null)
   const [editName, setEditName] = useState("")
   const [editColor, setEditColor] = useState("")
@@ -84,27 +80,6 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
     "#06b6d4", // cyan
     "#84cc16", // lime
   ]
-
-  async function addColumn() {
-    if (!newColumnName.trim()) return
-
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    await supabase.from("kanban_columns").insert({
-      project_id: projectId,
-      user_id: user.id,
-      name: newColumnName.trim(),
-      color: newColumnColor,
-      position: columns.length,
-    })
-
-    setNewColumnName("")
-    setNewColumnColor("#22c55e")
-    setIsAddingColumn(false)
-    router.refresh()
-  }
 
   async function updateColumn() {
     if (!editingColumn || !editName.trim()) return
@@ -201,10 +176,10 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
   const sortedColumns = [...columns].sort((a, b) => a.position - b.position)
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className="flex gap-4 w-full">
       {/* Coluna de Backlog (tarefas sem coluna) */}
       <div
-        className="flex-shrink-0 w-72"
+        className="flex-1 min-w-0"
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, null)}
       >
@@ -243,7 +218,7 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
         return (
           <div
             key={column.id}
-            className="flex-shrink-0 w-72"
+            className="flex-1 min-w-0"
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, column.id)}
           >
@@ -299,54 +274,6 @@ export function KanbanBoard({ tasks, columns, projectId }: KanbanBoardProps) {
           </div>
         )
       })}
-
-      {/* Botão para adicionar nova coluna */}
-      <div className="flex-shrink-0 w-72">
-        <Dialog open={isAddingColumn} onOpenChange={setIsAddingColumn}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="w-full h-12 border-dashed">
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Coluna
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Coluna</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col gap-4 py-4">
-              <Input
-                placeholder="Nome da coluna"
-                value={newColumnName}
-                onChange={(e) => setNewColumnName(e.target.value)}
-              />
-              <div>
-                <label className="text-sm font-medium mb-2 block">Cor</label>
-                <div className="flex gap-2 flex-wrap">
-                  {colors.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={`w-8 h-8 rounded-full transition-all ${
-                        newColumnColor === color ? "ring-2 ring-offset-2 ring-primary" : ""
-                      }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setNewColumnColor(color)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddingColumn(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={addColumn} disabled={!newColumnName.trim()}>
-                Criar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
 
       {/* Dialog para editar coluna */}
       <Dialog open={!!editingColumn} onOpenChange={() => setEditingColumn(null)}>

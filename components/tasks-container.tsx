@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { TasksList } from "@/components/tasks-list"
@@ -54,7 +54,14 @@ const colors = [
 
 export function TasksContainer({ tasks, columns, projectId }: TasksContainerProps) {
   const router = useRouter()
-  const [view, setView] = useState<"list" | "kanban">("list")
+  const [view, setView] = useState<"list" | "kanban">(() => {
+    if (typeof window === "undefined") return "list"
+    return (localStorage.getItem(`view-${projectId}`) as "list" | "kanban") ?? "list"
+  })
+
+  useEffect(() => {
+    localStorage.setItem(`view-${projectId}`, view)
+  }, [view, projectId])
   const [newColumnName, setNewColumnName] = useState("")
   const [newColumnColor, setNewColumnColor] = useState("#22c55e")
   const [isAddingColumn, setIsAddingColumn] = useState(false)
@@ -87,7 +94,7 @@ export function TasksContainer({ tasks, columns, projectId }: TasksContainerProp
         <ViewToggle view={view} onViewChange={setView} />
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-top gap-2 mb-4">
           <div className="flex-1">
             <AddTaskForm projectId={projectId} />
           </div>
