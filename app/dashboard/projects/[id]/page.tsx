@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft } from "lucide-react"
-import { TasksList } from "@/components/tasks-list"
-import { AddTaskForm } from "@/components/add-task-form"
+import { TasksContainer } from "@/components/tasks-container"
 import { ProjectActions } from "@/components/project-actions"
 
 interface ProjectPageProps {
@@ -17,23 +16,34 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: project, error } = await supabase
-    .from("projects")
-    .select(`
-      *,
-      tasks (
-        id,
-        title,
-        completed,
-        created_at
-      )
-    `)
-    .eq("id", id)
-    .single()
+  const [projectResult, columnsResult] = await Promise.all([
+    supabase
+      .from("projects")
+      .select(`
+        *,
+        tasks (
+          id,
+          title,
+          completed,
+          created_at,
+          kanban_column_id
+        )
+      `)
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("kanban_columns")
+      .select("*")
+      .eq("project_id", id)
+      .order("position", { ascending: true })
+  ])
 
-  if (error || !project) {
+  if (projectResult.error || !projectResult.data) {
     notFound()
   }
+
+  const project = projectResult.data
+  const columns = columnsResult.data || []
 
   const totalTasks = project.tasks?.length || 0
   const completedTasks = project.tasks?.filter((t: { completed: boolean }) => t.completed).length || 0
@@ -77,15 +87,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-lg">Tarefas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AddTaskForm projectId={project.id} />
-          <TasksList tasks={project.tasks || []} projectId={project.id} />
-        </CardContent>
-      </Card>
+      <TasksContainer 
+        tasks={project.tasks || []} 
+        columns={columns} 
+        projectId={project.id} 
+      />
     </div>
   )
 }

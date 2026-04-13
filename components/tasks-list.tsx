@@ -13,6 +13,7 @@ interface Task {
   title: string
   completed: boolean
   created_at: string
+  kanban_column_id?: string | null
 }
 
 interface TasksListProps {
