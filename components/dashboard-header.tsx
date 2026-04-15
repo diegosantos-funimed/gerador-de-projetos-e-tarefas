@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -12,8 +13,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { FolderKanban, LogOut, User, Moon, Sun } from "lucide-react"
+import { ChangePasswordDialog } from "@/components/change-password-dialog"
+import { FolderKanban, KeyRound, LogOut, User, Moon, Sun, Wallet } from "lucide-react"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
+
+const NAV_ITEMS = [
+  { href: "/dashboard", label: "Projetos", icon: FolderKanban },
+  { href: "/dashboard/financas", label: "Finanças", icon: Wallet },
+]
 
 interface DashboardHeaderProps {
   user: SupabaseUser
@@ -21,7 +28,9 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ user }: DashboardHeaderProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { theme, setTheme } = useTheme()
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -33,12 +42,33 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   return (
     <header className="border-b bg-background sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-            <FolderKanban className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="font-semibold text-lg">Projetos</span>
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
+              <FolderKanban className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="font-semibold text-lg hidden sm:block">Pessoal</span>
+          </Link>
+          <nav className="flex items-center gap-1">
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-secondary text-secondary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </Link>
+              )
+            })}
+          </nav>
+        </div>
 
         <div className="flex items-center gap-2">
           <Button
@@ -65,6 +95,14 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                 <p className="text-sm font-medium">{user.email}</p>
               </div>
               <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setChangePasswordOpen(true)}
+                className="cursor-pointer"
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Alterar senha
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
@@ -73,6 +111,10 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           </DropdownMenu>
         </div>
       </div>
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        onOpenChange={setChangePasswordOpen}
+      />
     </header>
   )
 }
