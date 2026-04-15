@@ -74,6 +74,7 @@ const formSchema = z
     isInstallment: z.boolean(),
     installmentCurrent: z.string(),
     installmentTotal: z.string(),
+    subscriptionYears: z.string(),
   })
   .superRefine((data, ctx) => {
     if (!data.isInstallment) return
@@ -110,6 +111,11 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>
 
+function addYears(dateStr: string, years: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number)
+  return `${year + years}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
 function addMonths(dateStr: string, months: number): string {
   const [year, month, day] = dateStr.split("-").map(Number)
   const d = new Date(year, month - 1 + months, day)
@@ -133,6 +139,7 @@ export function AddTransactionForm() {
     isInstallment: false,
     installmentCurrent: "",
     installmentTotal: "",
+    subscriptionYears: "5",
   }
 
   const form = useForm<FormValues>({
@@ -142,6 +149,8 @@ export function AddTransactionForm() {
 
   const selectedType = form.watch("type")
   const isInstallment = form.watch("isInstallment")
+  const selectedCategory = form.watch("category")
+  const isSubscription = selectedCategory === "Assinaturas"
   const categories =
     selectedType === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
 
@@ -154,7 +163,32 @@ export function AddTransactionForm() {
 
     const amount = Number(values.amount.replace(",", "."))
 
-    if (values.isInstallment) {
+    if (values.category === "Assinaturas") {
+      const years = Math.max(1, Number(values.subscriptionYears) || 5)
+      const groupId = crypto.randomUUID()
+
+      // Entrada do ano atual + próximos (years - 1) anos
+      const rows = Array.from({ length: years }, (_, i) => ({
+        user_id: user.id,
+        type: values.type,
+        amount,
+        description: values.description,
+        category: values.category,
+        date: addYears(values.date, i),
+        subscription_group_id: groupId,
+      }))
+
+      const { error } = await supabase.from("transactions").insert(rows)
+      if (error) {
+        toast.error("Erro ao registrar assinatura")
+        return
+      }
+      toast.success(
+        years === 1
+          ? "Assinatura registrada!"
+          : `Assinatura registrada para ${years} anos!`
+      )
+    } else if (values.isInstallment) {
       const current = Number(values.installmentCurrent)
       const total = Number(values.installmentTotal)
       const groupId = crypto.randomUUID()
@@ -298,7 +332,17 @@ export function AddTransactionForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value)
+                        if (value === "Assinaturas") {
+                          form.setValue("isInstallment", false)
+                          form.setValue("installmentCurrent", "")
+                          form.setValue("installmentTotal", "")
+                        }
+                      }}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione a categoria" />
@@ -317,30 +361,61 @@ export function AddTransactionForm() {
                 )}
               />
 
-              {/* Toggle de parcelamento */}
-              <FormField
-                control={form.control}
-                name="isInstallment"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center gap-3 py-1">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={(checked) => {
-                            field.onChange(checked)
-                            if (!checked) {
-                              form.setValue("installmentCurrent", "")
-                              form.setValue("installmentTotal", "")
-                            }
-                          }}
-                        />
-                      </FormControl>
-                      <Label className="cursor-pointer">É parcelado?</Label>
-                    </div>
-                  </FormItem>
-                )}
-              />
+              {/* Repetição anual para Assinaturas */}
+              {isSubscription && (
+                <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
+                  <p className="text-sm text-muted-foreground">
+                    Assinaturas são lançadas automaticamente para os próximos
+                    anos.
+                  </p>
+                  <FormField
+                    control={form.control}
+                    name="subscriptionYears"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Por quantos anos repetir?</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={20}
+                            placeholder="5"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Toggle de parcelamento — oculto para Assinaturas */}
+              {!isSubscription && (
+                <FormField
+                  control={form.control}
+                  name="isInstallment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-3 py-1">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(checked) => {
+                              field.onChange(checked)
+                              if (!checked) {
+                                form.setValue("installmentCurrent", "")
+                                form.setValue("installmentTotal", "")
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <Label className="cursor-pointer">É parcelado?</Label>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              )}
 
               {isInstallment && (
                 <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
