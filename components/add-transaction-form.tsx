@@ -35,6 +35,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { Plus } from "lucide-react"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const INCOME_CATEGORIES = [
   "Salário",
@@ -74,9 +75,21 @@ const formSchema = z
     isInstallment: z.boolean(),
     installmentCurrent: z.string(),
     installmentTotal: z.string(),
-    subscriptionYears: z.string(),
+    subscriptionFrequency: z.enum(["monthly", "annual"]),
+    subscriptionHasEnd: z.boolean(),
+    subscriptionDuration: z.string(),
   })
   .superRefine((data, ctx) => {
+    if (data.category === "Assinaturas" && data.subscriptionHasEnd) {
+      const dur = Number(data.subscriptionDuration)
+      if (!data.subscriptionDuration || isNaN(dur) || dur < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Informe a duração",
+          path: ["subscriptionDuration"],
+        })
+      }
+    }
     if (!data.isInstallment) return
     const current = Number(data.installmentCurrent)
     const total = Number(data.installmentTotal)
@@ -139,7 +152,9 @@ export function AddTransactionForm() {
     isInstallment: false,
     installmentCurrent: "",
     installmentTotal: "",
-    subscriptionYears: "5",
+    subscriptionFrequency: "monthly",
+    subscriptionHasEnd: false,
+    subscriptionDuration: "",
   }
 
   const form = useForm<FormValues>({
@@ -151,6 +166,8 @@ export function AddTransactionForm() {
   const isInstallment = form.watch("isInstallment")
   const selectedCategory = form.watch("category")
   const isSubscription = selectedCategory === "Assinaturas"
+  const subscriptionFrequency = form.watch("subscriptionFrequency")
+  const subscriptionHasEnd = form.watch("subscriptionHasEnd")
   const categories =
     selectedType === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
 
@@ -164,17 +181,22 @@ export function AddTransactionForm() {
     const amount = Number(values.amount.replace(",", "."))
 
     if (values.category === "Assinaturas") {
-      const years = Math.max(1, Number(values.subscriptionYears) || 5)
+      const isMonthly = values.subscriptionFrequency === "monthly"
+      // Sem fim: 10 anos (mensal = 120 entradas, anual = 10)
+      const count = values.subscriptionHasEnd
+        ? Math.max(1, Number(values.subscriptionDuration) || 1)
+        : isMonthly
+          ? 120
+          : 10
       const groupId = crypto.randomUUID()
 
-      // Entrada do ano atual + próximos (years - 1) anos
-      const rows = Array.from({ length: years }, (_, i) => ({
+      const rows = Array.from({ length: count }, (_, i) => ({
         user_id: user.id,
         type: values.type,
         amount,
         description: values.description,
         category: values.category,
-        date: addYears(values.date, i),
+        date: isMonthly ? addMonths(values.date, i) : addYears(values.date, i),
         subscription_group_id: groupId,
       }))
 
@@ -183,10 +205,13 @@ export function AddTransactionForm() {
         toast.error("Erro ao registrar assinatura")
         return
       }
+      const label = isMonthly
+        ? `${count} ${count === 1 ? "mês" : "meses"}`
+        : `${count} ${count === 1 ? "ano" : "anos"}`
       toast.success(
-        years === 1
-          ? "Assinatura registrada!"
-          : `Assinatura registrada para ${years} anos!`
+        values.subscriptionHasEnd
+          ? `Assinatura registrada por ${label}!`
+          : `Assinatura recorrente registrada (${label})!`
       )
     } else if (values.isInstallment) {
       const current = Number(values.installmentCurrent)
@@ -361,32 +386,99 @@ export function AddTransactionForm() {
                 )}
               />
 
-              {/* Repetição anual para Assinaturas */}
+              {/* Configuração de Assinatura */}
               {isSubscription && (
-                <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
-                  <p className="text-sm text-muted-foreground">
-                    Assinaturas são lançadas automaticamente para os próximos
-                    anos.
-                  </p>
+                <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+                  {/* Frequência: Mensal / Anual */}
                   <FormField
                     control={form.control}
-                    name="subscriptionYears"
+                    name="subscriptionFrequency"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Por quantos anos repetir?</FormLabel>
+                        <FormLabel>Frequência</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={20}
-                            placeholder="5"
-                            {...field}
-                          />
+                          <ToggleGroup
+                            type="single"
+                            variant="outline"
+                            value={field.value}
+                            onValueChange={(v) => {
+                              if (v) field.onChange(v)
+                            }}
+                            className="w-full"
+                          >
+                            <ToggleGroupItem value="monthly" className="flex-1">
+                              Mensal
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="annual" className="flex-1">
+                              Anual
+                            </ToggleGroupItem>
+                          </ToggleGroup>
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {/* Sem fim / Com fim */}
+                  <FormField
+                    control={form.control}
+                    name="subscriptionHasEnd"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center gap-3">
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={(checked) => {
+                                field.onChange(checked)
+                                if (!checked)
+                                  form.setValue("subscriptionDuration", "")
+                              }}
+                            />
+                          </FormControl>
+                          <Label className="cursor-pointer">
+                            Tem data de fim?
+                          </Label>
+                        </div>
+                        {!field.value && (
+                          <p className="text-xs text-muted-foreground pt-1">
+                            Sem fim: serão criadas{" "}
+                            {subscriptionFrequency === "monthly"
+                              ? "120 entradas (10 anos)"
+                              : "10 entradas (1 por ano)"}
+                            .
+                          </p>
+                        )}
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Duração (apenas quando tem fim) */}
+                  {subscriptionHasEnd && (
+                    <FormField
+                      control={form.control}
+                      name="subscriptionDuration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            {subscriptionFrequency === "monthly"
+                              ? "Quantos meses?"
+                              : "Quantos anos?"}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              placeholder={
+                                subscriptionFrequency === "monthly" ? "12" : "3"
+                              }
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               )}
 
