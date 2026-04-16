@@ -4,9 +4,13 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Copy, Eye, EyeOff, Search, Trash2 } from "lucide-react"
+import { Copy, Eye, EyeOff, FileText, Search, Trash2 } from "lucide-react"
 import { AddPasswordForm } from "@/components/add-password-form"
 
 export interface DecryptedEntry {
@@ -45,13 +49,13 @@ function copyToClipboard(text: string, label: string) {
 function PasswordCell({ password }: { password: string }) {
   const [visible, setVisible] = useState(false)
   return (
-    <div className="flex items-center gap-1">
-      <span className="font-mono text-sm">
+    <div className="flex items-center gap-1 min-w-0">
+      <span className="font-mono text-sm flex-shrink-0">
         {visible ? password : "••••••••"}
       </span>
       <button
         onClick={() => setVisible((v) => !v)}
-        className="text-muted-foreground hover:text-foreground p-1 rounded"
+        className="flex-shrink-0 text-muted-foreground hover:text-foreground p-1 rounded"
         title={visible ? "Ocultar" : "Revelar"}
       >
         {visible ? (
@@ -62,12 +66,33 @@ function PasswordCell({ password }: { password: string }) {
       </button>
       <button
         onClick={() => copyToClipboard(password, "Senha")}
-        className="text-muted-foreground hover:text-foreground p-1 rounded"
+        className="flex-shrink-0 text-muted-foreground hover:text-foreground p-1 rounded"
         title="Copiar senha"
       >
         <Copy className="w-3.5 h-3.5" />
       </button>
     </div>
+  )
+}
+
+function NotePopover({ note }: { note: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className="flex-shrink-0 text-muted-foreground hover:text-foreground p-1 rounded"
+          title="Ver nota"
+        >
+          <FileText className="w-4 h-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="left" align="center" className="w-72">
+        <p className="text-sm font-medium mb-1">Nota</p>
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+          {note}
+        </p>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -110,7 +135,7 @@ export function PasswordList({ entries, cryptoKey }: Props) {
         <AddPasswordForm cryptoKey={cryptoKey} />
       </div>
 
-      {/* Lista */}
+      {/* Tabela */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           {entries.length === 0
@@ -118,76 +143,88 @@ export function PasswordList({ entries, cryptoKey }: Props) {
             : "Nenhum resultado para a busca."}
         </div>
       ) : (
-        <div className="divide-y rounded-lg border">
-          {filtered.map((entry) => (
-            <div
-              key={entry.id}
-              className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors"
-            >
-              {/* Avatar com inicial */}
-              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-semibold text-primary uppercase">
-                  {entry.name[0]}
-                </span>
-              </div>
+        <div className="rounded-lg border overflow-hidden">
+          {/* Cabeçalho */}
+          <div className="grid grid-cols-[minmax(160px,1fr)_minmax(160px,1fr)_minmax(140px,1fr)_56px] items-center px-4 py-2 bg-muted/40 border-b text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            <span>Serviço</span>
+            <span>Login</span>
+            <span>Senha</span>
+            <span />
+          </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4">
-                <div className="font-medium truncate">{entry.name}</div>
+          {/* Linhas */}
+          <div className="divide-y">
+            {filtered.map((entry) => (
+              <div
+                key={entry.id}
+                className="grid grid-cols-[minmax(160px,1fr)_minmax(160px,1fr)_minmax(140px,1fr)_56px] items-center px-4 py-3 hover:bg-muted/20 transition-colors"
+              >
+                {/* Serviço */}
+                <div className="flex items-center gap-2.5 min-w-0 pr-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-xs font-semibold text-primary uppercase">
+                      {entry.name[0]}
+                    </span>
+                  </div>
+                  <span className="font-medium truncate text-sm">
+                    {entry.name}
+                  </span>
+                </div>
 
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <span className="truncate">{entry.login}</span>
+                {/* Login */}
+                <div className="flex items-center gap-1 min-w-0 pr-4">
+                  <span className="text-sm text-muted-foreground truncate">
+                    {entry.login}
+                  </span>
                   <button
                     onClick={() => copyToClipboard(entry.login, "Login")}
-                    className="flex-shrink-0 hover:text-foreground p-1 rounded"
+                    className="flex-shrink-0 text-muted-foreground hover:text-foreground p-1 rounded"
                     title="Copiar login"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
+                {/* Senha */}
                 <PasswordCell password={entry.password} />
-              </div>
 
-              {/* Ações */}
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {entry.notes && (
-                  <Badge variant="secondary" className="text-xs hidden sm:flex">
-                    nota
-                  </Badge>
-                )}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Excluir senha?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        A senha de <strong>{entry.name}</strong> será excluída
-                        permanentemente. Essa ação não pode ser desfeita.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDelete(entry.id)}
-                        className="bg-destructive hover:bg-destructive/90"
+                {/* Ações */}
+                <div className="flex items-center justify-end gap-0.5">
+                  {entry.notes && <NotePopover note={entry.notes} />}
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive h-8 w-8"
                       >
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir senha?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          A senha de <strong>{entry.name}</strong> será excluída
+                          permanentemente. Essa ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(entry.id)}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
