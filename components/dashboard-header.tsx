@@ -14,13 +14,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ChangePasswordDialog } from "@/components/change-password-dialog"
-import { FolderKanban, KeyRound, LogOut, User, Moon, Sun, Wallet, ShieldCheck } from "lucide-react"
+import Image from "next/image"
+import { KeyRound, LogOut, User, Moon, Sun, Wallet, ShieldCheck, CheckSquare, LayoutDashboard, NotebookPen, Target, FolderKanban } from "lucide-react"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Projetos", icon: FolderKanban },
-  { href: "/dashboard/financas", label: "Finanças", icon: Wallet },
-  { href: "/dashboard/senhas", label: "Senhas", icon: ShieldCheck },
+  { href: "/dashboard", label: "Início", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/projetos", label: "Projetos", icon: FolderKanban, exact: false },
+  { href: "/dashboard/financas", label: "Finanças", icon: Wallet, exact: false },
+  { href: "/dashboard/habitos", label: "Hábitos", icon: CheckSquare, exact: false },
+  { href: "/dashboard/notas", label: "Notas", icon: NotebookPen, exact: false },
+  { href: "/dashboard/objetivos", label: "Objetivos", icon: Target, exact: false },
+  { href: "/dashboard/senhas", label: "Senhas", icon: ShieldCheck, exact: false },
 ]
 
 interface DashboardHeaderProps {
@@ -45,14 +50,12 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary">
-              <FolderKanban className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-semibold text-lg hidden sm:block">Pessoal</span>
+            <Image src="/icon.svg" alt="Prumo" width={36} height={36} className="rounded-lg" />
+            <span className="font-semibold text-lg hidden sm:block">Prumo</span>
           </Link>
           <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
+            {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+              const active = exact ? pathname === href : pathname.startsWith(href)
               return (
                 <Link
                   key={href}
