@@ -14,12 +14,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ChangePasswordDialog } from "@/components/change-password-dialog"
-import { FolderKanban, KeyRound, LogOut, User, Moon, Sun, Wallet } from "lucide-react"
+import { FolderKanban, KeyRound, LogOut, User, Moon, Sun, Wallet, ShieldCheck } from "lucide-react"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Projetos", icon: FolderKanban },
   { href: "/dashboard/financas", label: "Finanças", icon: Wallet },
+  { href: "/dashboard/senhas", label: "Senhas", icon: ShieldCheck },
 ]
 
 interface DashboardHeaderProps {
